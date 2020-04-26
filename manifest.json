@@ -7,7 +7,10 @@
     "tabs",
     "downloads",
     "tabCapture",
+    "desktopCapture",
     "activeTab",
+    "videoCapture",
+    "audioCapture",
     "storage"
   ],
   "browser_action": {
@@ -15,7 +18,8 @@
   },
   "background": {
     "scripts": [
-      "background.js"
+      "participantRecorder.js",
+      "hostRecorder.js"
     ],
     "persistent": true
   },

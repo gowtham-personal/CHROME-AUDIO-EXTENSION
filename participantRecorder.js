@@ -1,54 +1,46 @@
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request === "startCapture") {
-        startAudioContextCapture();
-    }
-});
-let recLength = 0
-let recBuffers = []
-let buffers = []
 var worker = new Worker('wavWorker.js');
 
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request === "START_CAPTURE") {
+        startRecordingParticipant()
+    }
+});
 
-const startAudioContextCapture = () => {
-    chrome.tabCapture.capture({ audio: true }, (stream) => { // sets up stream for capture
-        let startTabId; //tab when the capture is started
-        let completeTabID; //tab when the capture is stopped
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => startTabId = tabs[0].id) //saves start tab
+
+const startRecordingParticipant = () => {
+    chrome.tabCapture.capture({
+        audio: true,
+        audioConstraints: {
+            mandatory: {
+                echoCancellation: true
+            }
+        }
+    }, (stream) => { // sets up stream for capture
         const liveStream = stream;
         let audio = new Audio();
         audio.srcObject = liveStream;
         audio.play();
         const audioCtx = new AudioContext();
-        console.log("audioCtx", audioCtx)
         const source = audioCtx.createMediaStreamSource(stream);
-        let mediaRecorder = new Recorder(source); //initiates the recorder based on the current stream
+        let mediaRecorder = new ParticipantRecorder(source); //initiates the recorder based on the current stream
         mediaRecorder.startRecording();
         chrome.runtime.onMessage.addListener((request) => {
-            if (request === "stopCapture") {
+            if (request === "STOP_CAPTURE") {
                 stopCapture();
             }
         });
 
-        const stopCapture = function () {
-            let endTabId;
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                endTabId = tabs[0].id;
-                if (mediaRecorder && startTabId === endTabId) {
-                    mediaRecorder.finishRecording();
-                }
-            })
+        const stopCapture = () => {
+            mediaRecorder.finishRecording();
             audioCtx.close();
             liveStream.getAudioTracks()[0].stop();
         }
     })
-
-
-
 }
 
 
-class Recorder {
+class ParticipantRecorder {
     constructor(source) {
         this.context = source.context;
         if (this.context.createScriptProcessor == null) {
@@ -57,7 +49,6 @@ class Recorder {
         this.input = this.context.createGain();
         source.connect(this.input);
         this.buffer = [];
-        console.log("constructor")
     }
 
     isRecording() {
@@ -76,9 +67,7 @@ class Recorder {
                 for (var ch = 0; ch < 2; ++ch) {
                     buffer[ch] = event.inputBuffer.getChannelData(ch);
                 }
-                console.log("buffer[ch]", buffer)
-                worker.postMessage({ command: "RECORD_AUDIO", buffer: buffer });
-                // recBuffers.push(buffer)
+                worker.postMessage({ command: "RECORD_PARTICIPANT_AUDIO", buffer: buffer });
             };
         }
     }
@@ -90,14 +79,11 @@ class Recorder {
             this.processor.disconnect();
             delete this.processor;
         }
-        if (recBuffers) {
-            worker.postMessage({ command: "ENCODE_AUDIO" });
-        }
+        worker.postMessage({ command: "ENCODE_PARTICIPANT_AUDIO" });
         worker.onmessage = function (event) {
             let data = event.data;
             if (data.command == "ENCODE_COMPLETE") {
                 let audioURL = window.URL.createObjectURL(data.blob);
-                console.log("audioURL", audioURL)
                 const currentDate = new Date(Date.now()).toDateString();
                 chrome.downloads.download({ url: audioURL, filename: `${currentDate}.wav`, saveAs: true });
             }
