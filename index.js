@@ -23,22 +23,4 @@ document.addEventListener('DOMContentLoaded', function () {
   };
 })
 
-// "background": {
-//   "scripts": [
-//         "participantRecorder.js",
-// "hostRecorder.js",
-//   ],
-//   "persistent": true
-// },
-
-// "content_scripts": [
-//   {
-//     "matches": [
-//       "<all_urls>"
-//     ],
-//     "js": [
-//       "mediaAccessContentScript.js"
-//     ]
-//   }
-// ],
 

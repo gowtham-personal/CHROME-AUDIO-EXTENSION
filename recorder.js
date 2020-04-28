@@ -3,27 +3,25 @@ var worker = new Worker('wavWorker.js');
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request === "START_CAPTURE") {
-        startRecordingParticipant()
+        getMediaStream()
     }
 });
 
 
-const startRecordingParticipant = () => {
-    chrome.tabCapture.capture({
+const getMediaStream = () => {
+    navigator.mediaDevices.getUserMedia({
         audio: true,
         audioConstraints: {
             mandatory: {
+                chromeMediaSource: 'desktop',
                 echoCancellation: true
             }
         }
-    }, (stream) => { // sets up stream for capture
+    }).then((stream) => {
         const liveStream = stream;
-        let audio = new Audio();
-        audio.srcObject = liveStream;
-        audio.play();
         const audioCtx = new AudioContext();
         const source = audioCtx.createMediaStreamSource(stream);
-        let mediaRecorder = new ParticipantRecorder(source); //initiates the recorder based on the current stream
+        let mediaRecorder = new Recorder(source); //initiates the recorder based on the current stream
         mediaRecorder.startRecording();
         chrome.runtime.onMessage.addListener((request) => {
             if (request === "STOP_CAPTURE") {
@@ -36,11 +34,14 @@ const startRecordingParticipant = () => {
             audioCtx.close();
             liveStream.getAudioTracks()[0].stop();
         }
+
+    }).catch((error) => {
+        console.log(error)
     })
 }
 
 
-class ParticipantRecorder {
+class Recorder {
     constructor(source) {
         this.context = source.context;
         if (this.context.createScriptProcessor == null) {
@@ -67,7 +68,7 @@ class ParticipantRecorder {
                 for (var ch = 0; ch < 2; ++ch) {
                     buffer[ch] = event.inputBuffer.getChannelData(ch);
                 }
-                worker.postMessage({ command: "RECORD_PARTICIPANT_AUDIO", buffer: buffer });
+                worker.postMessage({ command: "RECORD_AUDIO", buffer: buffer });
             };
         }
     }
@@ -79,7 +80,7 @@ class ParticipantRecorder {
             this.processor.disconnect();
             delete this.processor;
         }
-        worker.postMessage({ command: "ENCODE_PARTICIPANT_AUDIO" });
+        worker.postMessage({ command: "ENCODE_AUDIO" });
         worker.onmessage = function (event) {
             let data = event.data;
             if (data.command == "ENCODE_COMPLETE") {

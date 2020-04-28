@@ -18,8 +18,7 @@
   },
   "background": {
     "scripts": [
-      "participantRecorder.js",
-      "hostRecorder.js"
+      "recorder.js"
     ],
     "persistent": true
   },
